@@ -32,5 +32,58 @@
         <p>Already have an account? <a href="#" onclick="toggleForm()">Login here</a></p>
     </div>
 
-    </body>
+    <script>
+        function toggleForm() {
+            document.querySelector('.login-container').style.display = 
+                document.querySelector('.login-container').style.display === 'none' ? 'block' : 'none';
+            document.querySelector('.register-container').style.display = 
+                document.querySelector('.register-container').style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Login Form
+        document.getElementById('loginForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('https://labour-hester-hemang-841401d3.koyeb.app/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const result = await response.json();
+            if (response.status === 200) {
+                localStorage.setItem('user_id', result.user.id);
+                localStorage.setItem('role', result.user.role);
+                window.location.href = 'shop.html';
+            } else {
+                alert(result.message);
+            }
+        });
+
+        // Register Form
+        document.getElementById('registerForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('reg_username').value;
+            const password = document.getElementById('reg_password').value;
+            const email = document.getElementById('reg_email').value;
+            const role = document.getElementById('role').value;
+
+            const response = await fetch('https://labour-hester-hemang-841401d3.koyeb.app/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, email, role })
+            });
+
+            const result = await response.json();
+            if (response.status === 200) {
+                alert(result.message);
+                toggleForm(); // Switch to login form
+            } else {
+                alert(result.message);
+            }
+        });
+    </script>
+</body>
 </html>
