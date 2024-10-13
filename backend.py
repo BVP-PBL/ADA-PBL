@@ -4,11 +4,18 @@ from xata.client import XataClient
 from datetime import datetime
 import bcrypt  # For hashing passwords
 import random
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
-
-
+# SMTP email configuration
+EMAIL_HOST = "smtp.gmail.com"  # Gmail SMTP
+EMAIL_PORT = 587
+EMAIL_USER = "adapbl24@gmail.com"
+EMAIL_PASS = "jwyj gfru aldz rkcq" 
 
 app = Flask(__name__)
+CORS(allow_headers="Access-Control-Allow-Origin: *")
 CORS(app)  # Enable CORS for all routes
 
 # Initialize Xata client
@@ -27,6 +34,18 @@ INVOICES_COLLECTION = "Invoices"
 CART_COLLECTION = "Cart"
 
 
+
+def generate_invoice_number():
+    # Get the current timestamp in the format YYYYMMDD-HHMMSS
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+
+    # Generate a random 6-digit number
+    random_number = random.randint(100000, 999999)
+
+    # Combine timestamp and random number to create invoice number
+    invoice_number = f"INV-{timestamp}-{random_number}"
+
+    return invoice_number
 
 
 # Route to create a new user (register)
@@ -148,7 +167,35 @@ def create_order():
     order = xata.records().insert(ORDERS_COLLECTION, order_data)
     return jsonify(order), 201
 
+# Route to create an invoice for an order
+@app.route('/invoice', methods=['POST'])
+def create_invoice():
+    data = request.json
+    order_id = data.get('order_id')
+    total_amount = data.get('total_amount')
 
+    invoice_number = generate_invoice_number()
+    invoice_data = {
+        "order_id": order_id,
+        "invoice_number": invoice_number,
+        "total_amount": total_amount,
+        "status": "unpaid"
+    }
+
+    # Insert into Xata
+    invoice = xata.records().insert(INVOICES_COLLECTION, invoice_data)
+
+    order = xata.records().get(ORDERS_COLLECTION, order_id)
+    
+    user_id = order.get('user_id')
+    user = xata.records().get(USERS_COLLECTION, user_id.get('id'))
+    
+    user_email = user.get('email')
+
+    # Send the invoice email
+    send_invoice_email(user_email, invoice_number, total_amount, order_id)
+
+    return jsonify({'message': 'Invoice created successfully', 'invoice_number': invoice_number}), 201
 
 # Route to add a product to the cart
 @app.route('/cart', methods=['POST'])
@@ -216,8 +263,51 @@ def delete_from_cart():
         return jsonify({'message': f'Error deleting product from cart: {str(e)}'}), 500
 
 
+def send_invoice_email(user_email, invoice_number, total_amount, order_id):
+    try:
+        # Create the email object
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = user_email
+        msg['Subject'] = f"Invoice for your purchase, Invoice number: {invoice_number}"
+
+        # Create the email body
+        body = f"""
+        <h1>Your Invoice</h1>
+        <p>Thank you for your purchase! Here is your invoice:</p>
+        <p>Invoice Number: {invoice_number}</p>
+        <p>Total Amount: ${total_amount}</p>
+        <p>We hope you enjoy your products!</p>
+        """
+        msg.attach(MIMEText(body, 'html'))
+
+        # Setup the email server
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()  # Secure the connection
+        server.login(EMAIL_USER, EMAIL_PASS)
+
+        # Send the email
+        try:
+            server.sendmail(EMAIL_USER, user_email, msg.as_string())
+        except  Exception as e:
+            print(e)
+
+        server.quit()
+
+        print(f"Invoice email sent to {user_email}")
+        return True
+
+    except Exception as e:
+        print(f"Error sending email: {str(e)}")
+        return False
 
 
+# Route to mark an invoice as paid
+@app.route('/invoice/<invoice_id>/pay', methods=['POST'])
+def mark_invoice_as_paid(invoice_id):
+    # Update invoice status to 'paid'
+    xata.records().update(INVOICES_COLLECTION, invoice_id, {"status": "paid"})
+    return jsonify({'message': 'Invoice marked as paid'}), 200
 
 # Route to get all orders for a user
 @app.route('/orders/<user_id>', methods=['GET'])
