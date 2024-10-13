@@ -12,7 +12,7 @@ from email.mime.text import MIMEText
 EMAIL_HOST = "smtp.gmail.com"  # Gmail SMTP
 EMAIL_PORT = 587
 EMAIL_USER = "adapbl24@gmail.com"
-EMAIL_PASS = "jwyj gfru aldz rkcq" 
+EMAIL_PASS = "**** **** **** ****" 
 
 app = Flask(__name__)
 CORS(allow_headers="Access-Control-Allow-Origin: *")
